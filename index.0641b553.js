@@ -538,6 +538,7 @@ var _core = require("@popperjs/core");
 var _carousel = require("bootstrap/js/dist/carousel");
 var _collapse = require("bootstrap/js/dist/collapse");
 var _dropdown = require("bootstrap/js/dist/dropdown");
+var _lazysizes = require("lazysizes");
 function sendGETformToServer() {
     var _0x4502d0 = _0x3026;
     function _0x3026(_0x3b2620, _0x39f633) {
@@ -587,7 +588,7 @@ function sendGETformToServer() {
     }
 }
 
-},{"bootstrap/js/dist/carousel":"gkah6","bootstrap/js/dist/collapse":"5lkgg","@popperjs/core":"7unqC","bootstrap/js/dist/dropdown":"015Nn"}],"gkah6":[function(require,module,exports) {
+},{"bootstrap/js/dist/carousel":"gkah6","bootstrap/js/dist/collapse":"5lkgg","bootstrap/js/dist/dropdown":"015Nn","lazysizes":"gSx8h","@popperjs/core":"7unqC"}],"gkah6":[function(require,module,exports) {
 /*!
   * Bootstrap carousel.js v5.0.2 (https://getbootstrap.com/)
   * Copyright 2011-2021 The Bootstrap Authors (https://github.com/twbs/bootstrap/graphs/contributors)
@@ -1951,7 +1952,453 @@ function sendGETformToServer() {
     return Collapse;
 });
 
-},{"./dom/selector-engine.js":"c53ra","./dom/data.js":"c1tiI","./dom/event-handler.js":"i00FR","./dom/manipulator.js":"5Pbx3","./base-component.js":"cf8HC"}],"7unqC":[function(require,module,exports) {
+},{"./dom/selector-engine.js":"c53ra","./dom/data.js":"c1tiI","./dom/event-handler.js":"i00FR","./dom/manipulator.js":"5Pbx3","./base-component.js":"cf8HC"}],"015Nn":[function(require,module,exports) {
+/*!
+  * Bootstrap dropdown.js v5.0.2 (https://getbootstrap.com/)
+  * Copyright 2011-2021 The Bootstrap Authors (https://github.com/twbs/bootstrap/graphs/contributors)
+  * Licensed under MIT (https://github.com/twbs/bootstrap/blob/main/LICENSE)
+  */ (function(global, factory) {
+    module.exports = factory(require("@popperjs/core"), require("./dom/selector-engine.js"), require("./dom/event-handler.js"), require("./dom/manipulator.js"), require("./base-component.js"));
+})(this, function(Popper, SelectorEngine, EventHandler, Manipulator, BaseComponent) {
+    "use strict";
+    function _interopDefaultLegacy(e) {
+        return e && typeof e === "object" && "default" in e ? e : {
+            "default": e
+        };
+    }
+    function _interopNamespace(e) {
+        if (e && e.__esModule) return e;
+        var n = Object.create(null);
+        if (e) Object.keys(e).forEach(function(k) {
+            if (k !== "default") {
+                var d = Object.getOwnPropertyDescriptor(e, k);
+                Object.defineProperty(n, k, d.get ? d : {
+                    enumerable: true,
+                    get: function() {
+                        return e[k];
+                    }
+                });
+            }
+        });
+        n["default"] = e;
+        return Object.freeze(n);
+    }
+    var Popper__namespace = /*#__PURE__*/ _interopNamespace(Popper);
+    var SelectorEngine__default = /*#__PURE__*/ _interopDefaultLegacy(SelectorEngine);
+    var EventHandler__default = /*#__PURE__*/ _interopDefaultLegacy(EventHandler);
+    var Manipulator__default = /*#__PURE__*/ _interopDefaultLegacy(Manipulator);
+    var BaseComponent__default = /*#__PURE__*/ _interopDefaultLegacy(BaseComponent);
+    const toType = (obj)=>{
+        if (obj === null || obj === undefined) return `${obj}`;
+        return ({}).toString.call(obj).match(/\s([a-z]+)/i)[1].toLowerCase();
+    };
+    const getSelector = (element)=>{
+        let selector = element.getAttribute("data-bs-target");
+        if (!selector || selector === "#") {
+            let hrefAttr = element.getAttribute("href"); // The only valid content that could double as a selector are IDs or classes,
+            // so everything starting with `#` or `.`. If a "real" URL is used as the selector,
+            // `document.querySelector` will rightfully complain it is invalid.
+            // See https://github.com/twbs/bootstrap/issues/32273
+            if (!hrefAttr || !hrefAttr.includes("#") && !hrefAttr.startsWith(".")) return null;
+             // Just in case some CMS puts out a full URL with the anchor appended
+            if (hrefAttr.includes("#") && !hrefAttr.startsWith("#")) hrefAttr = `#${hrefAttr.split("#")[1]}`;
+            selector = hrefAttr && hrefAttr !== "#" ? hrefAttr.trim() : null;
+        }
+        return selector;
+    };
+    const getElementFromSelector = (element)=>{
+        const selector = getSelector(element);
+        return selector ? document.querySelector(selector) : null;
+    };
+    const isElement = (obj)=>{
+        if (!obj || typeof obj !== "object") return false;
+        if (typeof obj.jquery !== "undefined") obj = obj[0];
+        return typeof obj.nodeType !== "undefined";
+    };
+    const getElement = (obj)=>{
+        if (isElement(obj)) // it's a jQuery object or a node element
+        return obj.jquery ? obj[0] : obj;
+        if (typeof obj === "string" && obj.length > 0) return SelectorEngine__default["default"].findOne(obj);
+        return null;
+    };
+    const typeCheckConfig = (componentName, config, configTypes)=>{
+        Object.keys(configTypes).forEach((property)=>{
+            const expectedTypes = configTypes[property];
+            const value = config[property];
+            const valueType = value && isElement(value) ? "element" : toType(value);
+            if (!new RegExp(expectedTypes).test(valueType)) throw new TypeError(`${componentName.toUpperCase()}: Option "${property}" provided type "${valueType}" but expected type "${expectedTypes}".`);
+        });
+    };
+    const isVisible = (element)=>{
+        if (!isElement(element) || element.getClientRects().length === 0) return false;
+        return getComputedStyle(element).getPropertyValue("visibility") === "visible";
+    };
+    const isDisabled = (element)=>{
+        if (!element || element.nodeType !== Node.ELEMENT_NODE) return true;
+        if (element.classList.contains("disabled")) return true;
+        if (typeof element.disabled !== "undefined") return element.disabled;
+        return element.hasAttribute("disabled") && element.getAttribute("disabled") !== "false";
+    };
+    const noop = ()=>{};
+    const getjQuery = ()=>{
+        const { jQuery  } = window;
+        if (jQuery && !document.body.hasAttribute("data-bs-no-jquery")) return jQuery;
+        return null;
+    };
+    const DOMContentLoadedCallbacks = [];
+    const onDOMContentLoaded = (callback)=>{
+        if (document.readyState === "loading") {
+            // add listener on the first call when the document is in loading state
+            if (!DOMContentLoadedCallbacks.length) document.addEventListener("DOMContentLoaded", ()=>{
+                DOMContentLoadedCallbacks.forEach((callback)=>callback());
+            });
+            DOMContentLoadedCallbacks.push(callback);
+        } else callback();
+    };
+    const isRTL = ()=>document.documentElement.dir === "rtl";
+    const defineJQueryPlugin = (plugin)=>{
+        onDOMContentLoaded(()=>{
+            const $ = getjQuery();
+            /* istanbul ignore if */ if ($) {
+                const name = plugin.NAME;
+                const JQUERY_NO_CONFLICT = $.fn[name];
+                $.fn[name] = plugin.jQueryInterface;
+                $.fn[name].Constructor = plugin;
+                $.fn[name].noConflict = ()=>{
+                    $.fn[name] = JQUERY_NO_CONFLICT;
+                    return plugin.jQueryInterface;
+                };
+            }
+        });
+    };
+    /**
+   * Return the previous/next element of a list.
+   *
+   * @param {array} list    The list of elements
+   * @param activeElement   The active element
+   * @param shouldGetNext   Choose to get next or previous element
+   * @param isCycleAllowed
+   * @return {Element|elem} The proper element
+   */ const getNextActiveElement = (list, activeElement, shouldGetNext, isCycleAllowed)=>{
+        let index = list.indexOf(activeElement); // if the element does not exist in the list return an element depending on the direction and if cycle is allowed
+        if (index === -1) return list[!shouldGetNext && isCycleAllowed ? list.length - 1 : 0];
+        const listLength = list.length;
+        index += shouldGetNext ? 1 : -1;
+        if (isCycleAllowed) index = (index + listLength) % listLength;
+        return list[Math.max(0, Math.min(index, listLength - 1))];
+    };
+    /**
+   * --------------------------------------------------------------------------
+   * Bootstrap (v5.0.2): dropdown.js
+   * Licensed under MIT (https://github.com/twbs/bootstrap/blob/main/LICENSE)
+   * --------------------------------------------------------------------------
+   */ /**
+   * ------------------------------------------------------------------------
+   * Constants
+   * ------------------------------------------------------------------------
+   */ const NAME = "dropdown";
+    const DATA_KEY = "bs.dropdown";
+    const EVENT_KEY = `.${DATA_KEY}`;
+    const DATA_API_KEY = ".data-api";
+    const ESCAPE_KEY = "Escape";
+    const SPACE_KEY = "Space";
+    const TAB_KEY = "Tab";
+    const ARROW_UP_KEY = "ArrowUp";
+    const ARROW_DOWN_KEY = "ArrowDown";
+    const RIGHT_MOUSE_BUTTON = 2; // MouseEvent.button value for the secondary button, usually the right button
+    const REGEXP_KEYDOWN = new RegExp(`${ARROW_UP_KEY}|${ARROW_DOWN_KEY}|${ESCAPE_KEY}`);
+    const EVENT_HIDE = `hide${EVENT_KEY}`;
+    const EVENT_HIDDEN = `hidden${EVENT_KEY}`;
+    const EVENT_SHOW = `show${EVENT_KEY}`;
+    const EVENT_SHOWN = `shown${EVENT_KEY}`;
+    const EVENT_CLICK = `click${EVENT_KEY}`;
+    const EVENT_CLICK_DATA_API = `click${EVENT_KEY}${DATA_API_KEY}`;
+    const EVENT_KEYDOWN_DATA_API = `keydown${EVENT_KEY}${DATA_API_KEY}`;
+    const EVENT_KEYUP_DATA_API = `keyup${EVENT_KEY}${DATA_API_KEY}`;
+    const CLASS_NAME_SHOW = "show";
+    const CLASS_NAME_DROPUP = "dropup";
+    const CLASS_NAME_DROPEND = "dropend";
+    const CLASS_NAME_DROPSTART = "dropstart";
+    const CLASS_NAME_NAVBAR = "navbar";
+    const SELECTOR_DATA_TOGGLE = '[data-bs-toggle="dropdown"]';
+    const SELECTOR_MENU = ".dropdown-menu";
+    const SELECTOR_NAVBAR_NAV = ".navbar-nav";
+    const SELECTOR_VISIBLE_ITEMS = ".dropdown-menu .dropdown-item:not(.disabled):not(:disabled)";
+    const PLACEMENT_TOP = isRTL() ? "top-end" : "top-start";
+    const PLACEMENT_TOPEND = isRTL() ? "top-start" : "top-end";
+    const PLACEMENT_BOTTOM = isRTL() ? "bottom-end" : "bottom-start";
+    const PLACEMENT_BOTTOMEND = isRTL() ? "bottom-start" : "bottom-end";
+    const PLACEMENT_RIGHT = isRTL() ? "left-start" : "right-start";
+    const PLACEMENT_LEFT = isRTL() ? "right-start" : "left-start";
+    const Default = {
+        offset: [
+            0,
+            2
+        ],
+        boundary: "clippingParents",
+        reference: "toggle",
+        display: "dynamic",
+        popperConfig: null,
+        autoClose: true
+    };
+    const DefaultType = {
+        offset: "(array|string|function)",
+        boundary: "(string|element)",
+        reference: "(string|element|object)",
+        display: "string",
+        popperConfig: "(null|object|function)",
+        autoClose: "(boolean|string)"
+    };
+    /**
+   * ------------------------------------------------------------------------
+   * Class Definition
+   * ------------------------------------------------------------------------
+   */ class Dropdown extends BaseComponent__default["default"] {
+        constructor(element, config){
+            super(element);
+            this._popper = null;
+            this._config = this._getConfig(config);
+            this._menu = this._getMenuElement();
+            this._inNavbar = this._detectNavbar();
+            this._addEventListeners();
+        }
+        static get Default() {
+            return Default;
+        }
+        static get DefaultType() {
+            return DefaultType;
+        }
+        static get NAME() {
+            return NAME;
+        }
+        toggle() {
+            if (isDisabled(this._element)) return;
+            const isActive = this._element.classList.contains(CLASS_NAME_SHOW);
+            if (isActive) {
+                this.hide();
+                return;
+            }
+            this.show();
+        }
+        show() {
+            if (isDisabled(this._element) || this._menu.classList.contains(CLASS_NAME_SHOW)) return;
+            const parent = Dropdown.getParentFromElement(this._element);
+            const relatedTarget = {
+                relatedTarget: this._element
+            };
+            const showEvent = EventHandler__default["default"].trigger(this._element, EVENT_SHOW, relatedTarget);
+            if (showEvent.defaultPrevented) return;
+             // Totally disable Popper for Dropdowns in Navbar
+            if (this._inNavbar) Manipulator__default["default"].setDataAttribute(this._menu, "popper", "none");
+            else {
+                if (typeof Popper__namespace === "undefined") throw new TypeError("Bootstrap's dropdowns require Popper (https://popper.js.org)");
+                let referenceElement = this._element;
+                if (this._config.reference === "parent") referenceElement = parent;
+                else if (isElement(this._config.reference)) referenceElement = getElement(this._config.reference);
+                else if (typeof this._config.reference === "object") referenceElement = this._config.reference;
+                const popperConfig = this._getPopperConfig();
+                const isDisplayStatic = popperConfig.modifiers.find((modifier)=>modifier.name === "applyStyles" && modifier.enabled === false);
+                this._popper = Popper__namespace.createPopper(referenceElement, this._menu, popperConfig);
+                if (isDisplayStatic) Manipulator__default["default"].setDataAttribute(this._menu, "popper", "static");
+            } // If this is a touch-enabled device we add extra
+            // empty mouseover listeners to the body's immediate children;
+            // only needed because of broken event delegation on iOS
+            // https://www.quirksmode.org/blog/archives/2014/02/mouse_event_bub.html
+            if ("ontouchstart" in document.documentElement && !parent.closest(SELECTOR_NAVBAR_NAV)) [].concat(...document.body.children).forEach((elem)=>EventHandler__default["default"].on(elem, "mouseover", noop));
+            this._element.focus();
+            this._element.setAttribute("aria-expanded", true);
+            this._menu.classList.toggle(CLASS_NAME_SHOW);
+            this._element.classList.toggle(CLASS_NAME_SHOW);
+            EventHandler__default["default"].trigger(this._element, EVENT_SHOWN, relatedTarget);
+        }
+        hide() {
+            if (isDisabled(this._element) || !this._menu.classList.contains(CLASS_NAME_SHOW)) return;
+            const relatedTarget = {
+                relatedTarget: this._element
+            };
+            this._completeHide(relatedTarget);
+        }
+        dispose() {
+            if (this._popper) this._popper.destroy();
+            super.dispose();
+        }
+        update() {
+            this._inNavbar = this._detectNavbar();
+            if (this._popper) this._popper.update();
+        }
+        _addEventListeners() {
+            EventHandler__default["default"].on(this._element, EVENT_CLICK, (event)=>{
+                event.preventDefault();
+                this.toggle();
+            });
+        }
+        _completeHide(relatedTarget) {
+            const hideEvent = EventHandler__default["default"].trigger(this._element, EVENT_HIDE, relatedTarget);
+            if (hideEvent.defaultPrevented) return;
+             // If this is a touch-enabled device we remove the extra
+            // empty mouseover listeners we added for iOS support
+            if ("ontouchstart" in document.documentElement) [].concat(...document.body.children).forEach((elem)=>EventHandler__default["default"].off(elem, "mouseover", noop));
+            if (this._popper) this._popper.destroy();
+            this._menu.classList.remove(CLASS_NAME_SHOW);
+            this._element.classList.remove(CLASS_NAME_SHOW);
+            this._element.setAttribute("aria-expanded", "false");
+            Manipulator__default["default"].removeDataAttribute(this._menu, "popper");
+            EventHandler__default["default"].trigger(this._element, EVENT_HIDDEN, relatedTarget);
+        }
+        _getConfig(config) {
+            config = {
+                ...this.constructor.Default,
+                ...Manipulator__default["default"].getDataAttributes(this._element),
+                ...config
+            };
+            typeCheckConfig(NAME, config, this.constructor.DefaultType);
+            if (typeof config.reference === "object" && !isElement(config.reference) && typeof config.reference.getBoundingClientRect !== "function") // Popper virtual elements require a getBoundingClientRect method
+            throw new TypeError(`${NAME.toUpperCase()}: Option "reference" provided type "object" without a required "getBoundingClientRect" method.`);
+            return config;
+        }
+        _getMenuElement() {
+            return SelectorEngine__default["default"].next(this._element, SELECTOR_MENU)[0];
+        }
+        _getPlacement() {
+            const parentDropdown = this._element.parentNode;
+            if (parentDropdown.classList.contains(CLASS_NAME_DROPEND)) return PLACEMENT_RIGHT;
+            if (parentDropdown.classList.contains(CLASS_NAME_DROPSTART)) return PLACEMENT_LEFT;
+             // We need to trim the value because custom properties can also include spaces
+            const isEnd = getComputedStyle(this._menu).getPropertyValue("--bs-position").trim() === "end";
+            if (parentDropdown.classList.contains(CLASS_NAME_DROPUP)) return isEnd ? PLACEMENT_TOPEND : PLACEMENT_TOP;
+            return isEnd ? PLACEMENT_BOTTOMEND : PLACEMENT_BOTTOM;
+        }
+        _detectNavbar() {
+            return this._element.closest(`.${CLASS_NAME_NAVBAR}`) !== null;
+        }
+        _getOffset() {
+            const { offset  } = this._config;
+            if (typeof offset === "string") return offset.split(",").map((val)=>Number.parseInt(val, 10));
+            if (typeof offset === "function") return (popperData)=>offset(popperData, this._element);
+            return offset;
+        }
+        _getPopperConfig() {
+            const defaultBsPopperConfig = {
+                placement: this._getPlacement(),
+                modifiers: [
+                    {
+                        name: "preventOverflow",
+                        options: {
+                            boundary: this._config.boundary
+                        }
+                    },
+                    {
+                        name: "offset",
+                        options: {
+                            offset: this._getOffset()
+                        }
+                    }
+                ]
+            }; // Disable Popper if we have a static display
+            if (this._config.display === "static") defaultBsPopperConfig.modifiers = [
+                {
+                    name: "applyStyles",
+                    enabled: false
+                }
+            ];
+            return {
+                ...defaultBsPopperConfig,
+                ...typeof this._config.popperConfig === "function" ? this._config.popperConfig(defaultBsPopperConfig) : this._config.popperConfig
+            };
+        }
+        _selectMenuItem({ key , target  }) {
+            const items = SelectorEngine__default["default"].find(SELECTOR_VISIBLE_ITEMS, this._menu).filter(isVisible);
+            if (!items.length) return;
+             // if target isn't included in items (e.g. when expanding the dropdown)
+            // allow cycling to get the last item in case key equals ARROW_UP_KEY
+            getNextActiveElement(items, target, key === ARROW_DOWN_KEY, !items.includes(target)).focus();
+        }
+        static dropdownInterface(element, config) {
+            const data = Dropdown.getOrCreateInstance(element, config);
+            if (typeof config === "string") {
+                if (typeof data[config] === "undefined") throw new TypeError(`No method named "${config}"`);
+                data[config]();
+            }
+        }
+        static jQueryInterface(config) {
+            return this.each(function() {
+                Dropdown.dropdownInterface(this, config);
+            });
+        }
+        static clearMenus(event) {
+            if (event && (event.button === RIGHT_MOUSE_BUTTON || event.type === "keyup" && event.key !== TAB_KEY)) return;
+            const toggles = SelectorEngine__default["default"].find(SELECTOR_DATA_TOGGLE);
+            for(let i = 0, len = toggles.length; i < len; i++){
+                const context = Dropdown.getInstance(toggles[i]);
+                if (!context || context._config.autoClose === false) continue;
+                if (!context._element.classList.contains(CLASS_NAME_SHOW)) continue;
+                const relatedTarget = {
+                    relatedTarget: context._element
+                };
+                if (event) {
+                    const composedPath = event.composedPath();
+                    const isMenuTarget = composedPath.includes(context._menu);
+                    if (composedPath.includes(context._element) || context._config.autoClose === "inside" && !isMenuTarget || context._config.autoClose === "outside" && isMenuTarget) continue;
+                     // Tab navigation through the dropdown menu or events from contained inputs shouldn't close the menu
+                    if (context._menu.contains(event.target) && (event.type === "keyup" && event.key === TAB_KEY || /input|select|option|textarea|form/i.test(event.target.tagName))) continue;
+                    if (event.type === "click") relatedTarget.clickEvent = event;
+                }
+                context._completeHide(relatedTarget);
+            }
+        }
+        static getParentFromElement(element) {
+            return getElementFromSelector(element) || element.parentNode;
+        }
+        static dataApiKeydownHandler(event) {
+            // If not input/textarea:
+            //  - And not a key in REGEXP_KEYDOWN => not a dropdown command
+            // If input/textarea:
+            //  - If space key => not a dropdown command
+            //  - If key is other than escape
+            //    - If key is not up or down => not a dropdown command
+            //    - If trigger inside the menu => not a dropdown command
+            if (/input|textarea/i.test(event.target.tagName) ? event.key === SPACE_KEY || event.key !== ESCAPE_KEY && (event.key !== ARROW_DOWN_KEY && event.key !== ARROW_UP_KEY || event.target.closest(SELECTOR_MENU)) : !REGEXP_KEYDOWN.test(event.key)) return;
+            const isActive = this.classList.contains(CLASS_NAME_SHOW);
+            if (!isActive && event.key === ESCAPE_KEY) return;
+            event.preventDefault();
+            event.stopPropagation();
+            if (isDisabled(this)) return;
+            const getToggleButton = ()=>this.matches(SELECTOR_DATA_TOGGLE) ? this : SelectorEngine__default["default"].prev(this, SELECTOR_DATA_TOGGLE)[0];
+            if (event.key === ESCAPE_KEY) {
+                getToggleButton().focus();
+                Dropdown.clearMenus();
+                return;
+            }
+            if (event.key === ARROW_UP_KEY || event.key === ARROW_DOWN_KEY) {
+                if (!isActive) getToggleButton().click();
+                Dropdown.getInstance(getToggleButton())._selectMenuItem(event);
+                return;
+            }
+            if (!isActive || event.key === SPACE_KEY) Dropdown.clearMenus();
+        }
+    }
+    /**
+   * ------------------------------------------------------------------------
+   * Data Api implementation
+   * ------------------------------------------------------------------------
+   */ EventHandler__default["default"].on(document, EVENT_KEYDOWN_DATA_API, SELECTOR_DATA_TOGGLE, Dropdown.dataApiKeydownHandler);
+    EventHandler__default["default"].on(document, EVENT_KEYDOWN_DATA_API, SELECTOR_MENU, Dropdown.dataApiKeydownHandler);
+    EventHandler__default["default"].on(document, EVENT_CLICK_DATA_API, Dropdown.clearMenus);
+    EventHandler__default["default"].on(document, EVENT_KEYUP_DATA_API, Dropdown.clearMenus);
+    EventHandler__default["default"].on(document, EVENT_CLICK_DATA_API, SELECTOR_DATA_TOGGLE, function(event) {
+        event.preventDefault();
+        Dropdown.dropdownInterface(this);
+    });
+    /**
+   * ------------------------------------------------------------------------
+   * jQuery
+   * ------------------------------------------------------------------------
+   * add .Dropdown to jQuery only if jQuery is present
+   */ defineJQueryPlugin(Dropdown);
+    return Dropdown;
+});
+
+},{"@popperjs/core":"7unqC","./dom/selector-engine.js":"c53ra","./dom/event-handler.js":"i00FR","./dom/manipulator.js":"5Pbx3","./base-component.js":"cf8HC"}],"7unqC":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "popperGenerator", ()=>(0, _createPopperJs.popperGenerator)) // eslint-disable-next-line import/no-unused-modules
@@ -4182,452 +4629,559 @@ var createPopper = /*#__PURE__*/ (0, _createPopperJs.popperGenerator)({
     defaultModifiers: defaultModifiers
 }); // eslint-disable-next-line import/no-unused-modules
 
-},{"./createPopper.js":"cHuNp","./modifiers/eventListeners.js":"hBKsL","./modifiers/popperOffsets.js":"6I679","./modifiers/computeStyles.js":"gDlm2","./modifiers/applyStyles.js":"4iMn4","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"015Nn":[function(require,module,exports) {
-/*!
-  * Bootstrap dropdown.js v5.0.2 (https://getbootstrap.com/)
-  * Copyright 2011-2021 The Bootstrap Authors (https://github.com/twbs/bootstrap/graphs/contributors)
-  * Licensed under MIT (https://github.com/twbs/bootstrap/blob/main/LICENSE)
-  */ (function(global, factory) {
-    module.exports = factory(require("@popperjs/core"), require("./dom/selector-engine.js"), require("./dom/event-handler.js"), require("./dom/manipulator.js"), require("./base-component.js"));
-})(this, function(Popper, SelectorEngine, EventHandler, Manipulator, BaseComponent) {
+},{"./createPopper.js":"cHuNp","./modifiers/eventListeners.js":"hBKsL","./modifiers/popperOffsets.js":"6I679","./modifiers/computeStyles.js":"gDlm2","./modifiers/applyStyles.js":"4iMn4","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"gSx8h":[function(require,module,exports) {
+(function(window1, factory) {
+    var lazySizes = factory(window1, window1.document, Date);
+    window1.lazySizes = lazySizes;
+    if (module.exports) module.exports = lazySizes;
+})(typeof window != "undefined" ? window : {}, /**
+ * import("./types/global")
+ * @typedef { import("./types/lazysizes-config").LazySizesConfigPartial } LazySizesConfigPartial
+ */ function l(window1, document, Date1) {
     "use strict";
-    function _interopDefaultLegacy(e) {
-        return e && typeof e === "object" && "default" in e ? e : {
-            "default": e
+    /*jshint eqnull:true */ var lazysizes, /**
+		 * @type { LazySizesConfigPartial }
+		 */ lazySizesCfg;
+    (function() {
+        var prop;
+        var lazySizesDefaults = {
+            lazyClass: "lazyload",
+            loadedClass: "lazyloaded",
+            loadingClass: "lazyloading",
+            preloadClass: "lazypreload",
+            errorClass: "lazyerror",
+            //strictClass: 'lazystrict',
+            autosizesClass: "lazyautosizes",
+            fastLoadedClass: "ls-is-cached",
+            iframeLoadMode: 0,
+            srcAttr: "data-src",
+            srcsetAttr: "data-srcset",
+            sizesAttr: "data-sizes",
+            //preloadAfterLoad: false,
+            minSize: 40,
+            customMedia: {},
+            init: true,
+            expFactor: 1.5,
+            hFac: 0.8,
+            loadMode: 2,
+            loadHidden: true,
+            ricTimeout: 0,
+            throttleDelay: 125
         };
-    }
-    function _interopNamespace(e) {
-        if (e && e.__esModule) return e;
-        var n = Object.create(null);
-        if (e) Object.keys(e).forEach(function(k) {
-            if (k !== "default") {
-                var d = Object.getOwnPropertyDescriptor(e, k);
-                Object.defineProperty(n, k, d.get ? d : {
-                    enumerable: true,
-                    get: function() {
-                        return e[k];
+        lazySizesCfg = window1.lazySizesConfig || window1.lazysizesConfig || {};
+        for(prop in lazySizesDefaults)if (!(prop in lazySizesCfg)) lazySizesCfg[prop] = lazySizesDefaults[prop];
+    })();
+    if (!document || !document.getElementsByClassName) return {
+        init: function() {},
+        /**
+			 * @type { LazySizesConfigPartial }
+			 */ cfg: lazySizesCfg,
+        /**
+			 * @type { true }
+			 */ noSupport: true
+    };
+    var docElem = document.documentElement;
+    var supportPicture = window1.HTMLPictureElement;
+    var _addEventListener = "addEventListener";
+    var _getAttribute = "getAttribute";
+    /**
+	 * Update to bind to window because 'this' becomes null during SSR
+	 * builds.
+	 */ var addEventListener = window1[_addEventListener].bind(window1);
+    var setTimeout = window1.setTimeout;
+    var requestAnimationFrame = window1.requestAnimationFrame || setTimeout;
+    var requestIdleCallback = window1.requestIdleCallback;
+    var regPicture = /^picture$/i;
+    var loadEvents = [
+        "load",
+        "error",
+        "lazyincluded",
+        "_lazyloaded"
+    ];
+    var regClassCache = {};
+    var forEach = Array.prototype.forEach;
+    /**
+	 * @param ele {Element}
+	 * @param cls {string}
+	 */ var hasClass = function(ele, cls) {
+        if (!regClassCache[cls]) regClassCache[cls] = new RegExp("(\\s|^)" + cls + "(\\s|$)");
+        return regClassCache[cls].test(ele[_getAttribute]("class") || "") && regClassCache[cls];
+    };
+    /**
+	 * @param ele {Element}
+	 * @param cls {string}
+	 */ var addClass = function(ele, cls) {
+        if (!hasClass(ele, cls)) ele.setAttribute("class", (ele[_getAttribute]("class") || "").trim() + " " + cls);
+    };
+    /**
+	 * @param ele {Element}
+	 * @param cls {string}
+	 */ var removeClass = function(ele, cls) {
+        var reg;
+        if (reg = hasClass(ele, cls)) ele.setAttribute("class", (ele[_getAttribute]("class") || "").replace(reg, " "));
+    };
+    var addRemoveLoadEvents = function(dom, fn, add) {
+        var action = add ? _addEventListener : "removeEventListener";
+        if (add) addRemoveLoadEvents(dom, fn);
+        loadEvents.forEach(function(evt) {
+            dom[action](evt, fn);
+        });
+    };
+    /**
+	 * @param elem { Element }
+	 * @param name { string }
+	 * @param detail { any }
+	 * @param noBubbles { boolean }
+	 * @param noCancelable { boolean }
+	 * @returns { CustomEvent }
+	 */ var triggerEvent = function(elem, name, detail, noBubbles, noCancelable) {
+        var event = document.createEvent("Event");
+        if (!detail) detail = {};
+        detail.instance = lazysizes;
+        event.initEvent(name, !noBubbles, !noCancelable);
+        event.detail = detail;
+        elem.dispatchEvent(event);
+        return event;
+    };
+    var updatePolyfill = function(el, full) {
+        var polyfill;
+        if (!supportPicture && (polyfill = window1.picturefill || lazySizesCfg.pf)) {
+            if (full && full.src && !el[_getAttribute]("srcset")) el.setAttribute("srcset", full.src);
+            polyfill({
+                reevaluate: true,
+                elements: [
+                    el
+                ]
+            });
+        } else if (full && full.src) el.src = full.src;
+    };
+    var getCSS = function(elem, style) {
+        return (getComputedStyle(elem, null) || {})[style];
+    };
+    /**
+	 *
+	 * @param elem { Element }
+	 * @param parent { Element }
+	 * @param [width] {number}
+	 * @returns {number}
+	 */ var getWidth = function(elem, parent, width) {
+        width = width || elem.offsetWidth;
+        while(width < lazySizesCfg.minSize && parent && !elem._lazysizesWidth){
+            width = parent.offsetWidth;
+            parent = parent.parentNode;
+        }
+        return width;
+    };
+    var rAF = function() {
+        var running, waiting;
+        var firstFns = [];
+        var secondFns = [];
+        var fns = firstFns;
+        var run = function() {
+            var runFns = fns;
+            fns = firstFns.length ? secondFns : firstFns;
+            running = true;
+            waiting = false;
+            while(runFns.length)runFns.shift()();
+            running = false;
+        };
+        var rafBatch = function(fn, queue) {
+            if (running && !queue) fn.apply(this, arguments);
+            else {
+                fns.push(fn);
+                if (!waiting) {
+                    waiting = true;
+                    (document.hidden ? setTimeout : requestAnimationFrame)(run);
+                }
+            }
+        };
+        rafBatch._lsFlush = run;
+        return rafBatch;
+    }();
+    var rAFIt = function(fn, simple) {
+        return simple ? function() {
+            rAF(fn);
+        } : function() {
+            var that = this;
+            var args = arguments;
+            rAF(function() {
+                fn.apply(that, args);
+            });
+        };
+    };
+    var throttle = function(fn) {
+        var running;
+        var lastTime = 0;
+        var gDelay = lazySizesCfg.throttleDelay;
+        var rICTimeout = lazySizesCfg.ricTimeout;
+        var run = function() {
+            running = false;
+            lastTime = Date1.now();
+            fn();
+        };
+        var idleCallback = requestIdleCallback && rICTimeout > 49 ? function() {
+            requestIdleCallback(run, {
+                timeout: rICTimeout
+            });
+            if (rICTimeout !== lazySizesCfg.ricTimeout) rICTimeout = lazySizesCfg.ricTimeout;
+        } : rAFIt(function() {
+            setTimeout(run);
+        }, true);
+        return function(isPriority) {
+            var delay;
+            if (isPriority = isPriority === true) rICTimeout = 33;
+            if (running) return;
+            running = true;
+            delay = gDelay - (Date1.now() - lastTime);
+            if (delay < 0) delay = 0;
+            if (isPriority || delay < 9) idleCallback();
+            else setTimeout(idleCallback, delay);
+        };
+    };
+    //based on http://modernjavascript.blogspot.de/2013/08/building-better-debounce.html
+    var debounce = function(func) {
+        var timeout, timestamp;
+        var wait = 99;
+        var run = function() {
+            timeout = null;
+            func();
+        };
+        var later = function() {
+            var last = Date1.now() - timestamp;
+            if (last < wait) setTimeout(later, wait - last);
+            else (requestIdleCallback || run)(run);
+        };
+        return function() {
+            timestamp = Date1.now();
+            if (!timeout) timeout = setTimeout(later, wait);
+        };
+    };
+    var loader = function() {
+        var preloadElems, isCompleted, resetPreloadingTimer, loadMode, started;
+        var eLvW, elvH, eLtop, eLleft, eLright, eLbottom, isBodyHidden;
+        var regImg = /^img$/i;
+        var regIframe = /^iframe$/i;
+        var supportScroll = "onscroll" in window1 && !/(gle|ing)bot/.test(navigator.userAgent);
+        var shrinkExpand = 0;
+        var currentExpand = 0;
+        var isLoading = 0;
+        var lowRuns = -1;
+        var resetPreloading = function(e) {
+            isLoading--;
+            if (!e || isLoading < 0 || !e.target) isLoading = 0;
+        };
+        var isVisible = function(elem) {
+            if (isBodyHidden == null) isBodyHidden = getCSS(document.body, "visibility") == "hidden";
+            return isBodyHidden || !(getCSS(elem.parentNode, "visibility") == "hidden" && getCSS(elem, "visibility") == "hidden");
+        };
+        var isNestedVisible = function(elem, elemExpand) {
+            var outerRect;
+            var parent = elem;
+            var visible = isVisible(elem);
+            eLtop -= elemExpand;
+            eLbottom += elemExpand;
+            eLleft -= elemExpand;
+            eLright += elemExpand;
+            while(visible && (parent = parent.offsetParent) && parent != document.body && parent != docElem){
+                visible = (getCSS(parent, "opacity") || 1) > 0;
+                if (visible && getCSS(parent, "overflow") != "visible") {
+                    outerRect = parent.getBoundingClientRect();
+                    visible = eLright > outerRect.left && eLleft < outerRect.right && eLbottom > outerRect.top - 1 && eLtop < outerRect.bottom + 1;
+                }
+            }
+            return visible;
+        };
+        var checkElements = function() {
+            var eLlen, i, rect, autoLoadElem, loadedSomething, elemExpand, elemNegativeExpand, elemExpandVal, beforeExpandVal, defaultExpand, preloadExpand, hFac;
+            var lazyloadElems = lazysizes.elements;
+            if ((loadMode = lazySizesCfg.loadMode) && isLoading < 8 && (eLlen = lazyloadElems.length)) {
+                i = 0;
+                lowRuns++;
+                for(; i < eLlen; i++){
+                    if (!lazyloadElems[i] || lazyloadElems[i]._lazyRace) continue;
+                    if (!supportScroll || lazysizes.prematureUnveil && lazysizes.prematureUnveil(lazyloadElems[i])) {
+                        unveilElement(lazyloadElems[i]);
+                        continue;
                     }
+                    if (!(elemExpandVal = lazyloadElems[i][_getAttribute]("data-expand")) || !(elemExpand = elemExpandVal * 1)) elemExpand = currentExpand;
+                    if (!defaultExpand) {
+                        defaultExpand = !lazySizesCfg.expand || lazySizesCfg.expand < 1 ? docElem.clientHeight > 500 && docElem.clientWidth > 500 ? 500 : 370 : lazySizesCfg.expand;
+                        lazysizes._defEx = defaultExpand;
+                        preloadExpand = defaultExpand * lazySizesCfg.expFactor;
+                        hFac = lazySizesCfg.hFac;
+                        isBodyHidden = null;
+                        if (currentExpand < preloadExpand && isLoading < 1 && lowRuns > 2 && loadMode > 2 && !document.hidden) {
+                            currentExpand = preloadExpand;
+                            lowRuns = 0;
+                        } else if (loadMode > 1 && lowRuns > 1 && isLoading < 6) currentExpand = defaultExpand;
+                        else currentExpand = shrinkExpand;
+                    }
+                    if (beforeExpandVal !== elemExpand) {
+                        eLvW = innerWidth + elemExpand * hFac;
+                        elvH = innerHeight + elemExpand;
+                        elemNegativeExpand = elemExpand * -1;
+                        beforeExpandVal = elemExpand;
+                    }
+                    rect = lazyloadElems[i].getBoundingClientRect();
+                    if ((eLbottom = rect.bottom) >= elemNegativeExpand && (eLtop = rect.top) <= elvH && (eLright = rect.right) >= elemNegativeExpand * hFac && (eLleft = rect.left) <= eLvW && (eLbottom || eLright || eLleft || eLtop) && (lazySizesCfg.loadHidden || isVisible(lazyloadElems[i])) && (isCompleted && isLoading < 3 && !elemExpandVal && (loadMode < 3 || lowRuns < 4) || isNestedVisible(lazyloadElems[i], elemExpand))) {
+                        unveilElement(lazyloadElems[i]);
+                        loadedSomething = true;
+                        if (isLoading > 9) break;
+                    } else if (!loadedSomething && isCompleted && !autoLoadElem && isLoading < 4 && lowRuns < 4 && loadMode > 2 && (preloadElems[0] || lazySizesCfg.preloadAfterLoad) && (preloadElems[0] || !elemExpandVal && (eLbottom || eLright || eLleft || eLtop || lazyloadElems[i][_getAttribute](lazySizesCfg.sizesAttr) != "auto"))) autoLoadElem = preloadElems[0] || lazyloadElems[i];
+                }
+                if (autoLoadElem && !loadedSomething) unveilElement(autoLoadElem);
+            }
+        };
+        var throttledCheckElements = throttle(checkElements);
+        var switchLoadingClass = function(e) {
+            var elem = e.target;
+            if (elem._lazyCache) {
+                delete elem._lazyCache;
+                return;
+            }
+            resetPreloading(e);
+            addClass(elem, lazySizesCfg.loadedClass);
+            removeClass(elem, lazySizesCfg.loadingClass);
+            addRemoveLoadEvents(elem, rafSwitchLoadingClass);
+            triggerEvent(elem, "lazyloaded");
+        };
+        var rafedSwitchLoadingClass = rAFIt(switchLoadingClass);
+        var rafSwitchLoadingClass = function(e) {
+            rafedSwitchLoadingClass({
+                target: e.target
+            });
+        };
+        var changeIframeSrc = function(elem, src) {
+            var loadMode = elem.getAttribute("data-load-mode") || lazySizesCfg.iframeLoadMode;
+            // loadMode can be also a string!
+            if (loadMode == 0) elem.contentWindow.location.replace(src);
+            else if (loadMode == 1) elem.src = src;
+        };
+        var handleSources = function(source) {
+            var customMedia;
+            var sourceSrcset = source[_getAttribute](lazySizesCfg.srcsetAttr);
+            if (customMedia = lazySizesCfg.customMedia[source[_getAttribute]("data-media") || source[_getAttribute]("media")]) source.setAttribute("media", customMedia);
+            if (sourceSrcset) source.setAttribute("srcset", sourceSrcset);
+        };
+        var lazyUnveil = rAFIt(function(elem, detail, isAuto, sizes, isImg) {
+            var src, srcset, parent, isPicture, event, firesLoad;
+            if (!(event = triggerEvent(elem, "lazybeforeunveil", detail)).defaultPrevented) {
+                if (sizes) {
+                    if (isAuto) addClass(elem, lazySizesCfg.autosizesClass);
+                    else elem.setAttribute("sizes", sizes);
+                }
+                srcset = elem[_getAttribute](lazySizesCfg.srcsetAttr);
+                src = elem[_getAttribute](lazySizesCfg.srcAttr);
+                if (isImg) {
+                    parent = elem.parentNode;
+                    isPicture = parent && regPicture.test(parent.nodeName || "");
+                }
+                firesLoad = detail.firesLoad || "src" in elem && (srcset || src || isPicture);
+                event = {
+                    target: elem
+                };
+                addClass(elem, lazySizesCfg.loadingClass);
+                if (firesLoad) {
+                    clearTimeout(resetPreloadingTimer);
+                    resetPreloadingTimer = setTimeout(resetPreloading, 2500);
+                    addRemoveLoadEvents(elem, rafSwitchLoadingClass, true);
+                }
+                if (isPicture) forEach.call(parent.getElementsByTagName("source"), handleSources);
+                if (srcset) elem.setAttribute("srcset", srcset);
+                else if (src && !isPicture) {
+                    if (regIframe.test(elem.nodeName)) changeIframeSrc(elem, src);
+                    else elem.src = src;
+                }
+                if (isImg && (srcset || isPicture)) updatePolyfill(elem, {
+                    src: src
                 });
             }
+            if (elem._lazyRace) delete elem._lazyRace;
+            removeClass(elem, lazySizesCfg.lazyClass);
+            rAF(function() {
+                // Part of this can be removed as soon as this fix is older: https://bugs.chromium.org/p/chromium/issues/detail?id=7731 (2015)
+                var isLoaded = elem.complete && elem.naturalWidth > 1;
+                if (!firesLoad || isLoaded) {
+                    if (isLoaded) addClass(elem, lazySizesCfg.fastLoadedClass);
+                    switchLoadingClass(event);
+                    elem._lazyCache = true;
+                    setTimeout(function() {
+                        if ("_lazyCache" in elem) delete elem._lazyCache;
+                    }, 9);
+                }
+                if (elem.loading == "lazy") isLoading--;
+            }, true);
         });
-        n["default"] = e;
-        return Object.freeze(n);
-    }
-    var Popper__namespace = /*#__PURE__*/ _interopNamespace(Popper);
-    var SelectorEngine__default = /*#__PURE__*/ _interopDefaultLegacy(SelectorEngine);
-    var EventHandler__default = /*#__PURE__*/ _interopDefaultLegacy(EventHandler);
-    var Manipulator__default = /*#__PURE__*/ _interopDefaultLegacy(Manipulator);
-    var BaseComponent__default = /*#__PURE__*/ _interopDefaultLegacy(BaseComponent);
-    const toType = (obj)=>{
-        if (obj === null || obj === undefined) return `${obj}`;
-        return ({}).toString.call(obj).match(/\s([a-z]+)/i)[1].toLowerCase();
-    };
-    const getSelector = (element)=>{
-        let selector = element.getAttribute("data-bs-target");
-        if (!selector || selector === "#") {
-            let hrefAttr = element.getAttribute("href"); // The only valid content that could double as a selector are IDs or classes,
-            // so everything starting with `#` or `.`. If a "real" URL is used as the selector,
-            // `document.querySelector` will rightfully complain it is invalid.
-            // See https://github.com/twbs/bootstrap/issues/32273
-            if (!hrefAttr || !hrefAttr.includes("#") && !hrefAttr.startsWith(".")) return null;
-             // Just in case some CMS puts out a full URL with the anchor appended
-            if (hrefAttr.includes("#") && !hrefAttr.startsWith("#")) hrefAttr = `#${hrefAttr.split("#")[1]}`;
-            selector = hrefAttr && hrefAttr !== "#" ? hrefAttr.trim() : null;
-        }
-        return selector;
-    };
-    const getElementFromSelector = (element)=>{
-        const selector = getSelector(element);
-        return selector ? document.querySelector(selector) : null;
-    };
-    const isElement = (obj)=>{
-        if (!obj || typeof obj !== "object") return false;
-        if (typeof obj.jquery !== "undefined") obj = obj[0];
-        return typeof obj.nodeType !== "undefined";
-    };
-    const getElement = (obj)=>{
-        if (isElement(obj)) // it's a jQuery object or a node element
-        return obj.jquery ? obj[0] : obj;
-        if (typeof obj === "string" && obj.length > 0) return SelectorEngine__default["default"].findOne(obj);
-        return null;
-    };
-    const typeCheckConfig = (componentName, config, configTypes)=>{
-        Object.keys(configTypes).forEach((property)=>{
-            const expectedTypes = configTypes[property];
-            const value = config[property];
-            const valueType = value && isElement(value) ? "element" : toType(value);
-            if (!new RegExp(expectedTypes).test(valueType)) throw new TypeError(`${componentName.toUpperCase()}: Option "${property}" provided type "${valueType}" but expected type "${expectedTypes}".`);
+        /**
+		 *
+		 * @param elem { Element }
+		 */ var unveilElement = function(elem) {
+            if (elem._lazyRace) return;
+            var detail;
+            var isImg = regImg.test(elem.nodeName);
+            //allow using sizes="auto", but don't use. it's invalid. Use data-sizes="auto" or a valid value for sizes instead (i.e.: sizes="80vw")
+            var sizes = isImg && (elem[_getAttribute](lazySizesCfg.sizesAttr) || elem[_getAttribute]("sizes"));
+            var isAuto = sizes == "auto";
+            if ((isAuto || !isCompleted) && isImg && (elem[_getAttribute]("src") || elem.srcset) && !elem.complete && !hasClass(elem, lazySizesCfg.errorClass) && hasClass(elem, lazySizesCfg.lazyClass)) return;
+            detail = triggerEvent(elem, "lazyunveilread").detail;
+            if (isAuto) autoSizer.updateElem(elem, true, elem.offsetWidth);
+            elem._lazyRace = true;
+            isLoading++;
+            lazyUnveil(elem, detail, isAuto, sizes, isImg);
+        };
+        var afterScroll = debounce(function() {
+            lazySizesCfg.loadMode = 3;
+            throttledCheckElements();
         });
-    };
-    const isVisible = (element)=>{
-        if (!isElement(element) || element.getClientRects().length === 0) return false;
-        return getComputedStyle(element).getPropertyValue("visibility") === "visible";
-    };
-    const isDisabled = (element)=>{
-        if (!element || element.nodeType !== Node.ELEMENT_NODE) return true;
-        if (element.classList.contains("disabled")) return true;
-        if (typeof element.disabled !== "undefined") return element.disabled;
-        return element.hasAttribute("disabled") && element.getAttribute("disabled") !== "false";
-    };
-    const noop = ()=>{};
-    const getjQuery = ()=>{
-        const { jQuery  } = window;
-        if (jQuery && !document.body.hasAttribute("data-bs-no-jquery")) return jQuery;
-        return null;
-    };
-    const DOMContentLoadedCallbacks = [];
-    const onDOMContentLoaded = (callback)=>{
-        if (document.readyState === "loading") {
-            // add listener on the first call when the document is in loading state
-            if (!DOMContentLoadedCallbacks.length) document.addEventListener("DOMContentLoaded", ()=>{
-                DOMContentLoadedCallbacks.forEach((callback)=>callback());
-            });
-            DOMContentLoadedCallbacks.push(callback);
-        } else callback();
-    };
-    const isRTL = ()=>document.documentElement.dir === "rtl";
-    const defineJQueryPlugin = (plugin)=>{
-        onDOMContentLoaded(()=>{
-            const $ = getjQuery();
-            /* istanbul ignore if */ if ($) {
-                const name = plugin.NAME;
-                const JQUERY_NO_CONFLICT = $.fn[name];
-                $.fn[name] = plugin.jQueryInterface;
-                $.fn[name].Constructor = plugin;
-                $.fn[name].noConflict = ()=>{
-                    $.fn[name] = JQUERY_NO_CONFLICT;
-                    return plugin.jQueryInterface;
-                };
-            }
-        });
-    };
-    /**
-   * Return the previous/next element of a list.
-   *
-   * @param {array} list    The list of elements
-   * @param activeElement   The active element
-   * @param shouldGetNext   Choose to get next or previous element
-   * @param isCycleAllowed
-   * @return {Element|elem} The proper element
-   */ const getNextActiveElement = (list, activeElement, shouldGetNext, isCycleAllowed)=>{
-        let index = list.indexOf(activeElement); // if the element does not exist in the list return an element depending on the direction and if cycle is allowed
-        if (index === -1) return list[!shouldGetNext && isCycleAllowed ? list.length - 1 : 0];
-        const listLength = list.length;
-        index += shouldGetNext ? 1 : -1;
-        if (isCycleAllowed) index = (index + listLength) % listLength;
-        return list[Math.max(0, Math.min(index, listLength - 1))];
-    };
-    /**
-   * --------------------------------------------------------------------------
-   * Bootstrap (v5.0.2): dropdown.js
-   * Licensed under MIT (https://github.com/twbs/bootstrap/blob/main/LICENSE)
-   * --------------------------------------------------------------------------
-   */ /**
-   * ------------------------------------------------------------------------
-   * Constants
-   * ------------------------------------------------------------------------
-   */ const NAME = "dropdown";
-    const DATA_KEY = "bs.dropdown";
-    const EVENT_KEY = `.${DATA_KEY}`;
-    const DATA_API_KEY = ".data-api";
-    const ESCAPE_KEY = "Escape";
-    const SPACE_KEY = "Space";
-    const TAB_KEY = "Tab";
-    const ARROW_UP_KEY = "ArrowUp";
-    const ARROW_DOWN_KEY = "ArrowDown";
-    const RIGHT_MOUSE_BUTTON = 2; // MouseEvent.button value for the secondary button, usually the right button
-    const REGEXP_KEYDOWN = new RegExp(`${ARROW_UP_KEY}|${ARROW_DOWN_KEY}|${ESCAPE_KEY}`);
-    const EVENT_HIDE = `hide${EVENT_KEY}`;
-    const EVENT_HIDDEN = `hidden${EVENT_KEY}`;
-    const EVENT_SHOW = `show${EVENT_KEY}`;
-    const EVENT_SHOWN = `shown${EVENT_KEY}`;
-    const EVENT_CLICK = `click${EVENT_KEY}`;
-    const EVENT_CLICK_DATA_API = `click${EVENT_KEY}${DATA_API_KEY}`;
-    const EVENT_KEYDOWN_DATA_API = `keydown${EVENT_KEY}${DATA_API_KEY}`;
-    const EVENT_KEYUP_DATA_API = `keyup${EVENT_KEY}${DATA_API_KEY}`;
-    const CLASS_NAME_SHOW = "show";
-    const CLASS_NAME_DROPUP = "dropup";
-    const CLASS_NAME_DROPEND = "dropend";
-    const CLASS_NAME_DROPSTART = "dropstart";
-    const CLASS_NAME_NAVBAR = "navbar";
-    const SELECTOR_DATA_TOGGLE = '[data-bs-toggle="dropdown"]';
-    const SELECTOR_MENU = ".dropdown-menu";
-    const SELECTOR_NAVBAR_NAV = ".navbar-nav";
-    const SELECTOR_VISIBLE_ITEMS = ".dropdown-menu .dropdown-item:not(.disabled):not(:disabled)";
-    const PLACEMENT_TOP = isRTL() ? "top-end" : "top-start";
-    const PLACEMENT_TOPEND = isRTL() ? "top-start" : "top-end";
-    const PLACEMENT_BOTTOM = isRTL() ? "bottom-end" : "bottom-start";
-    const PLACEMENT_BOTTOMEND = isRTL() ? "bottom-start" : "bottom-end";
-    const PLACEMENT_RIGHT = isRTL() ? "left-start" : "right-start";
-    const PLACEMENT_LEFT = isRTL() ? "right-start" : "left-start";
-    const Default = {
-        offset: [
-            0,
-            2
-        ],
-        boundary: "clippingParents",
-        reference: "toggle",
-        display: "dynamic",
-        popperConfig: null,
-        autoClose: true
-    };
-    const DefaultType = {
-        offset: "(array|string|function)",
-        boundary: "(string|element)",
-        reference: "(string|element|object)",
-        display: "string",
-        popperConfig: "(null|object|function)",
-        autoClose: "(boolean|string)"
-    };
-    /**
-   * ------------------------------------------------------------------------
-   * Class Definition
-   * ------------------------------------------------------------------------
-   */ class Dropdown extends BaseComponent__default["default"] {
-        constructor(element, config){
-            super(element);
-            this._popper = null;
-            this._config = this._getConfig(config);
-            this._menu = this._getMenuElement();
-            this._inNavbar = this._detectNavbar();
-            this._addEventListeners();
-        }
-        static get Default() {
-            return Default;
-        }
-        static get DefaultType() {
-            return DefaultType;
-        }
-        static get NAME() {
-            return NAME;
-        }
-        toggle() {
-            if (isDisabled(this._element)) return;
-            const isActive = this._element.classList.contains(CLASS_NAME_SHOW);
-            if (isActive) {
-                this.hide();
+        var altLoadmodeScrollListner = function() {
+            if (lazySizesCfg.loadMode == 3) lazySizesCfg.loadMode = 2;
+            afterScroll();
+        };
+        var onload = function() {
+            if (isCompleted) return;
+            if (Date1.now() - started < 999) {
+                setTimeout(onload, 999);
                 return;
             }
-            this.show();
-        }
-        show() {
-            if (isDisabled(this._element) || this._menu.classList.contains(CLASS_NAME_SHOW)) return;
-            const parent = Dropdown.getParentFromElement(this._element);
-            const relatedTarget = {
-                relatedTarget: this._element
-            };
-            const showEvent = EventHandler__default["default"].trigger(this._element, EVENT_SHOW, relatedTarget);
-            if (showEvent.defaultPrevented) return;
-             // Totally disable Popper for Dropdowns in Navbar
-            if (this._inNavbar) Manipulator__default["default"].setDataAttribute(this._menu, "popper", "none");
-            else {
-                if (typeof Popper__namespace === "undefined") throw new TypeError("Bootstrap's dropdowns require Popper (https://popper.js.org)");
-                let referenceElement = this._element;
-                if (this._config.reference === "parent") referenceElement = parent;
-                else if (isElement(this._config.reference)) referenceElement = getElement(this._config.reference);
-                else if (typeof this._config.reference === "object") referenceElement = this._config.reference;
-                const popperConfig = this._getPopperConfig();
-                const isDisplayStatic = popperConfig.modifiers.find((modifier)=>modifier.name === "applyStyles" && modifier.enabled === false);
-                this._popper = Popper__namespace.createPopper(referenceElement, this._menu, popperConfig);
-                if (isDisplayStatic) Manipulator__default["default"].setDataAttribute(this._menu, "popper", "static");
-            } // If this is a touch-enabled device we add extra
-            // empty mouseover listeners to the body's immediate children;
-            // only needed because of broken event delegation on iOS
-            // https://www.quirksmode.org/blog/archives/2014/02/mouse_event_bub.html
-            if ("ontouchstart" in document.documentElement && !parent.closest(SELECTOR_NAVBAR_NAV)) [].concat(...document.body.children).forEach((elem)=>EventHandler__default["default"].on(elem, "mouseover", noop));
-            this._element.focus();
-            this._element.setAttribute("aria-expanded", true);
-            this._menu.classList.toggle(CLASS_NAME_SHOW);
-            this._element.classList.toggle(CLASS_NAME_SHOW);
-            EventHandler__default["default"].trigger(this._element, EVENT_SHOWN, relatedTarget);
-        }
-        hide() {
-            if (isDisabled(this._element) || !this._menu.classList.contains(CLASS_NAME_SHOW)) return;
-            const relatedTarget = {
-                relatedTarget: this._element
-            };
-            this._completeHide(relatedTarget);
-        }
-        dispose() {
-            if (this._popper) this._popper.destroy();
-            super.dispose();
-        }
-        update() {
-            this._inNavbar = this._detectNavbar();
-            if (this._popper) this._popper.update();
-        }
-        _addEventListeners() {
-            EventHandler__default["default"].on(this._element, EVENT_CLICK, (event)=>{
-                event.preventDefault();
-                this.toggle();
-            });
-        }
-        _completeHide(relatedTarget) {
-            const hideEvent = EventHandler__default["default"].trigger(this._element, EVENT_HIDE, relatedTarget);
-            if (hideEvent.defaultPrevented) return;
-             // If this is a touch-enabled device we remove the extra
-            // empty mouseover listeners we added for iOS support
-            if ("ontouchstart" in document.documentElement) [].concat(...document.body.children).forEach((elem)=>EventHandler__default["default"].off(elem, "mouseover", noop));
-            if (this._popper) this._popper.destroy();
-            this._menu.classList.remove(CLASS_NAME_SHOW);
-            this._element.classList.remove(CLASS_NAME_SHOW);
-            this._element.setAttribute("aria-expanded", "false");
-            Manipulator__default["default"].removeDataAttribute(this._menu, "popper");
-            EventHandler__default["default"].trigger(this._element, EVENT_HIDDEN, relatedTarget);
-        }
-        _getConfig(config) {
-            config = {
-                ...this.constructor.Default,
-                ...Manipulator__default["default"].getDataAttributes(this._element),
-                ...config
-            };
-            typeCheckConfig(NAME, config, this.constructor.DefaultType);
-            if (typeof config.reference === "object" && !isElement(config.reference) && typeof config.reference.getBoundingClientRect !== "function") // Popper virtual elements require a getBoundingClientRect method
-            throw new TypeError(`${NAME.toUpperCase()}: Option "reference" provided type "object" without a required "getBoundingClientRect" method.`);
-            return config;
-        }
-        _getMenuElement() {
-            return SelectorEngine__default["default"].next(this._element, SELECTOR_MENU)[0];
-        }
-        _getPlacement() {
-            const parentDropdown = this._element.parentNode;
-            if (parentDropdown.classList.contains(CLASS_NAME_DROPEND)) return PLACEMENT_RIGHT;
-            if (parentDropdown.classList.contains(CLASS_NAME_DROPSTART)) return PLACEMENT_LEFT;
-             // We need to trim the value because custom properties can also include spaces
-            const isEnd = getComputedStyle(this._menu).getPropertyValue("--bs-position").trim() === "end";
-            if (parentDropdown.classList.contains(CLASS_NAME_DROPUP)) return isEnd ? PLACEMENT_TOPEND : PLACEMENT_TOP;
-            return isEnd ? PLACEMENT_BOTTOMEND : PLACEMENT_BOTTOM;
-        }
-        _detectNavbar() {
-            return this._element.closest(`.${CLASS_NAME_NAVBAR}`) !== null;
-        }
-        _getOffset() {
-            const { offset  } = this._config;
-            if (typeof offset === "string") return offset.split(",").map((val)=>Number.parseInt(val, 10));
-            if (typeof offset === "function") return (popperData)=>offset(popperData, this._element);
-            return offset;
-        }
-        _getPopperConfig() {
-            const defaultBsPopperConfig = {
-                placement: this._getPlacement(),
-                modifiers: [
-                    {
-                        name: "preventOverflow",
-                        options: {
-                            boundary: this._config.boundary
-                        }
-                    },
-                    {
-                        name: "offset",
-                        options: {
-                            offset: this._getOffset()
-                        }
+            isCompleted = true;
+            lazySizesCfg.loadMode = 3;
+            throttledCheckElements();
+            addEventListener("scroll", altLoadmodeScrollListner, true);
+        };
+        return {
+            _: function() {
+                started = Date1.now();
+                lazysizes.elements = document.getElementsByClassName(lazySizesCfg.lazyClass);
+                preloadElems = document.getElementsByClassName(lazySizesCfg.lazyClass + " " + lazySizesCfg.preloadClass);
+                addEventListener("scroll", throttledCheckElements, true);
+                addEventListener("resize", throttledCheckElements, true);
+                addEventListener("pageshow", function(e) {
+                    if (e.persisted) {
+                        var loadingElements = document.querySelectorAll("." + lazySizesCfg.loadingClass);
+                        if (loadingElements.length && loadingElements.forEach) requestAnimationFrame(function() {
+                            loadingElements.forEach(function(img) {
+                                if (img.complete) unveilElement(img);
+                            });
+                        });
                     }
-                ]
-            }; // Disable Popper if we have a static display
-            if (this._config.display === "static") defaultBsPopperConfig.modifiers = [
-                {
-                    name: "applyStyles",
-                    enabled: false
+                });
+                if (window1.MutationObserver) new MutationObserver(throttledCheckElements).observe(docElem, {
+                    childList: true,
+                    subtree: true,
+                    attributes: true
+                });
+                else {
+                    docElem[_addEventListener]("DOMNodeInserted", throttledCheckElements, true);
+                    docElem[_addEventListener]("DOMAttrModified", throttledCheckElements, true);
+                    setInterval(throttledCheckElements, 999);
                 }
-            ];
-            return {
-                ...defaultBsPopperConfig,
-                ...typeof this._config.popperConfig === "function" ? this._config.popperConfig(defaultBsPopperConfig) : this._config.popperConfig
-            };
-        }
-        _selectMenuItem({ key , target  }) {
-            const items = SelectorEngine__default["default"].find(SELECTOR_VISIBLE_ITEMS, this._menu).filter(isVisible);
-            if (!items.length) return;
-             // if target isn't included in items (e.g. when expanding the dropdown)
-            // allow cycling to get the last item in case key equals ARROW_UP_KEY
-            getNextActiveElement(items, target, key === ARROW_DOWN_KEY, !items.includes(target)).focus();
-        }
-        static dropdownInterface(element, config) {
-            const data = Dropdown.getOrCreateInstance(element, config);
-            if (typeof config === "string") {
-                if (typeof data[config] === "undefined") throw new TypeError(`No method named "${config}"`);
-                data[config]();
-            }
-        }
-        static jQueryInterface(config) {
-            return this.each(function() {
-                Dropdown.dropdownInterface(this, config);
-            });
-        }
-        static clearMenus(event) {
-            if (event && (event.button === RIGHT_MOUSE_BUTTON || event.type === "keyup" && event.key !== TAB_KEY)) return;
-            const toggles = SelectorEngine__default["default"].find(SELECTOR_DATA_TOGGLE);
-            for(let i = 0, len = toggles.length; i < len; i++){
-                const context = Dropdown.getInstance(toggles[i]);
-                if (!context || context._config.autoClose === false) continue;
-                if (!context._element.classList.contains(CLASS_NAME_SHOW)) continue;
-                const relatedTarget = {
-                    relatedTarget: context._element
-                };
-                if (event) {
-                    const composedPath = event.composedPath();
-                    const isMenuTarget = composedPath.includes(context._menu);
-                    if (composedPath.includes(context._element) || context._config.autoClose === "inside" && !isMenuTarget || context._config.autoClose === "outside" && isMenuTarget) continue;
-                     // Tab navigation through the dropdown menu or events from contained inputs shouldn't close the menu
-                    if (context._menu.contains(event.target) && (event.type === "keyup" && event.key === TAB_KEY || /input|select|option|textarea|form/i.test(event.target.tagName))) continue;
-                    if (event.type === "click") relatedTarget.clickEvent = event;
+                addEventListener("hashchange", throttledCheckElements, true);
+                //, 'fullscreenchange'
+                [
+                    "focus",
+                    "mouseover",
+                    "click",
+                    "load",
+                    "transitionend",
+                    "animationend"
+                ].forEach(function(name) {
+                    document[_addEventListener](name, throttledCheckElements, true);
+                });
+                if (/d$|^c/.test(document.readyState)) onload();
+                else {
+                    addEventListener("load", onload);
+                    document[_addEventListener]("DOMContentLoaded", throttledCheckElements);
+                    setTimeout(onload, 20000);
                 }
-                context._completeHide(relatedTarget);
+                if (lazysizes.elements.length) {
+                    checkElements();
+                    rAF._lsFlush();
+                } else throttledCheckElements();
+            },
+            checkElems: throttledCheckElements,
+            unveil: unveilElement,
+            _aLSL: altLoadmodeScrollListner
+        };
+    }();
+    var autoSizer = function() {
+        var autosizesElems;
+        var sizeElement = rAFIt(function(elem, parent, event, width) {
+            var sources, i, len;
+            elem._lazysizesWidth = width;
+            width += "px";
+            elem.setAttribute("sizes", width);
+            if (regPicture.test(parent.nodeName || "")) {
+                sources = parent.getElementsByTagName("source");
+                for(i = 0, len = sources.length; i < len; i++)sources[i].setAttribute("sizes", width);
             }
-        }
-        static getParentFromElement(element) {
-            return getElementFromSelector(element) || element.parentNode;
-        }
-        static dataApiKeydownHandler(event) {
-            // If not input/textarea:
-            //  - And not a key in REGEXP_KEYDOWN => not a dropdown command
-            // If input/textarea:
-            //  - If space key => not a dropdown command
-            //  - If key is other than escape
-            //    - If key is not up or down => not a dropdown command
-            //    - If trigger inside the menu => not a dropdown command
-            if (/input|textarea/i.test(event.target.tagName) ? event.key === SPACE_KEY || event.key !== ESCAPE_KEY && (event.key !== ARROW_DOWN_KEY && event.key !== ARROW_UP_KEY || event.target.closest(SELECTOR_MENU)) : !REGEXP_KEYDOWN.test(event.key)) return;
-            const isActive = this.classList.contains(CLASS_NAME_SHOW);
-            if (!isActive && event.key === ESCAPE_KEY) return;
-            event.preventDefault();
-            event.stopPropagation();
-            if (isDisabled(this)) return;
-            const getToggleButton = ()=>this.matches(SELECTOR_DATA_TOGGLE) ? this : SelectorEngine__default["default"].prev(this, SELECTOR_DATA_TOGGLE)[0];
-            if (event.key === ESCAPE_KEY) {
-                getToggleButton().focus();
-                Dropdown.clearMenus();
-                return;
+            if (!event.detail.dataAttr) updatePolyfill(elem, event.detail);
+        });
+        /**
+		 *
+		 * @param elem {Element}
+		 * @param dataAttr
+		 * @param [width] { number }
+		 */ var getSizeElement = function(elem, dataAttr, width) {
+            var event;
+            var parent = elem.parentNode;
+            if (parent) {
+                width = getWidth(elem, parent, width);
+                event = triggerEvent(elem, "lazybeforesizes", {
+                    width: width,
+                    dataAttr: !!dataAttr
+                });
+                if (!event.defaultPrevented) {
+                    width = event.detail.width;
+                    if (width && width !== elem._lazysizesWidth) sizeElement(elem, parent, event, width);
+                }
             }
-            if (event.key === ARROW_UP_KEY || event.key === ARROW_DOWN_KEY) {
-                if (!isActive) getToggleButton().click();
-                Dropdown.getInstance(getToggleButton())._selectMenuItem(event);
-                return;
+        };
+        var updateElementsSizes = function() {
+            var i;
+            var len = autosizesElems.length;
+            if (len) {
+                i = 0;
+                for(; i < len; i++)getSizeElement(autosizesElems[i]);
             }
-            if (!isActive || event.key === SPACE_KEY) Dropdown.clearMenus();
+        };
+        var debouncedUpdateElementsSizes = debounce(updateElementsSizes);
+        return {
+            _: function() {
+                autosizesElems = document.getElementsByClassName(lazySizesCfg.autosizesClass);
+                addEventListener("resize", debouncedUpdateElementsSizes);
+            },
+            checkElems: debouncedUpdateElementsSizes,
+            updateElem: getSizeElement
+        };
+    }();
+    var init = function() {
+        if (!init.i && document.getElementsByClassName) {
+            init.i = true;
+            autoSizer._();
+            loader._();
         }
-    }
-    /**
-   * ------------------------------------------------------------------------
-   * Data Api implementation
-   * ------------------------------------------------------------------------
-   */ EventHandler__default["default"].on(document, EVENT_KEYDOWN_DATA_API, SELECTOR_DATA_TOGGLE, Dropdown.dataApiKeydownHandler);
-    EventHandler__default["default"].on(document, EVENT_KEYDOWN_DATA_API, SELECTOR_MENU, Dropdown.dataApiKeydownHandler);
-    EventHandler__default["default"].on(document, EVENT_CLICK_DATA_API, Dropdown.clearMenus);
-    EventHandler__default["default"].on(document, EVENT_KEYUP_DATA_API, Dropdown.clearMenus);
-    EventHandler__default["default"].on(document, EVENT_CLICK_DATA_API, SELECTOR_DATA_TOGGLE, function(event) {
-        event.preventDefault();
-        Dropdown.dropdownInterface(this);
+    };
+    setTimeout(function() {
+        if (lazySizesCfg.init) init();
     });
-    /**
-   * ------------------------------------------------------------------------
-   * jQuery
-   * ------------------------------------------------------------------------
-   * add .Dropdown to jQuery only if jQuery is present
-   */ defineJQueryPlugin(Dropdown);
-    return Dropdown;
+    lazysizes = {
+        /**
+		 * @type { LazySizesConfigPartial }
+		 */ cfg: lazySizesCfg,
+        autoSizer: autoSizer,
+        loader: loader,
+        init: init,
+        uP: updatePolyfill,
+        aC: addClass,
+        rC: removeClass,
+        hC: hasClass,
+        fire: triggerEvent,
+        gW: getWidth,
+        rAF: rAF
+    };
+    return lazysizes;
 });
 
-},{"@popperjs/core":"7unqC","./dom/selector-engine.js":"c53ra","./dom/event-handler.js":"i00FR","./dom/manipulator.js":"5Pbx3","./base-component.js":"cf8HC"}]},["7Aums","bNKaB"], "bNKaB", "parcelRequire2ce6")
+},{}]},["7Aums","bNKaB"], "bNKaB", "parcelRequire2ce6")
 
 //# sourceMappingURL=index.0641b553.js.map
